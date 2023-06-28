@@ -1,4 +1,3 @@
-read me
 autoupdate
 multipage for sale
 viewing options
