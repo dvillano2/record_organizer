@@ -41,5 +41,3 @@ def forsaleupsert(rows, path_to_db, rel_id):
 
 	cur.close()
 	con.close()
-
-#forsaleupdate(sys.argv[1], sys.argv[2], sys.argv[3])
