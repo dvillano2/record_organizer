@@ -51,7 +51,7 @@ def forsaleprocess(path):
 			elif c == "¥":
 				currency[i] = "JPY"
 			elif c == "A$":
-				currenty[i] = "AUD"
+				currency[i] = "AUD"
 		list_price = [re.sub('^[^\d]*', '', lp) for lp in list_price]
 		list_price = [lp.replace(",", "") for lp in list_price]
 		list_price = [float(lp) for lp in list_price]
