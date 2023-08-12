@@ -20,14 +20,14 @@ def total_data(price_html):
         if total[-1] != "total":
             est_exact.append(None)
         elif total[0] == "about":
-            est_exact.append("estimate")
+            est_exact.append("Estimate")
         else:
-            est_exact.append("exact")
+            est_exact.append("Exact")
 
     for i, es_ex in enumerate(est_exact):
         if es_ex is None:
             totals[i] = None
-        elif es_ex == "estimate":
+        elif es_ex == "Estimate":
             totals[i] = totals[i][1]
         else:
             totals[i] = totals[i][0]
@@ -92,8 +92,10 @@ def media_data(cond_html):
 
 def ships_from_data(seller_html):
     """Pulls shipping countries"""
-    s_loc = [s.find_all("li")[2].find("span").decompose() for s in seller_html]
-    return [s_f.get_text().strip() if s_f else None for s_f in s_loc]
+    s_loc = [s.find_all("li")[2] for s in seller_html]
+    for s_l in s_loc:
+        s_l.find("span").decompose()
+    return [s_l.get_text().strip() if s_l else None for s_l in s_loc]
 
 
 def forsaleprocess(path):
