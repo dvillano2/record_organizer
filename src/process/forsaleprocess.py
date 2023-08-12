@@ -1,87 +1,122 @@
 """
-Funciton that takes path to a html file and returns
+Functions that takes path to a html file and returns
 zip object of all for sale rows
 """
 import re
 from bs4 import BeautifulSoup
 
+
+def total_data(price_html):
+    """Gets total price and whether it is exact or not"""
+    totals = [
+        p_html.find("span", {"class": "converted_price"}).get_text().strip()
+        for p_html in price_html
+    ]
+
+    totals = [total.split() for total in totals]
+    est_exact = []
+
+    for total in totals:
+        if total[-1] != "total":
+            est_exact.append(None)
+        elif total[0] == "about":
+            est_exact.append("estimate")
+        else:
+            est_exact.append("exact")
+
+    for i, es_ex in enumerate(est_exact):
+        if es_ex is None:
+            totals[i] = None
+        elif es_ex == "estimate":
+            totals[i] = totals[i][1]
+        else:
+            totals[i] = totals[i][0]
+
+    total = [float(t.replace("$", "")) if t else None for t in totals]
+    return total, est_exact
+
+
+def lp_data(price_html):
+    """Gets the listed price and the currency"""
+    l_price = [
+        p_html.find("span", {"class": "price"}).get_text().strip()
+        for p_html in price_html
+    ]
+    currency = [re.sub(r"\d.*$", "", lp) for lp in l_price]
+    for i, curr in enumerate(currency):
+        if curr == "$":
+            currency[i] = "USD"
+        elif curr == "€":
+            currency[i] = "EUR"
+        elif curr == "CA$":
+            currency[i] = "CAD"
+        elif curr == "£":
+            currency[i] = "GBP"
+        elif curr == "¥":
+            currency[i] = "JPY"
+        elif curr == "A$":
+            currency[i] = "AUD"
+
+    l_price = [re.sub(r"^[^\d]*", "", lp).replace(",", "") for lp in l_price]
+    return list(map(float, l_price)), currency
+
+
+def shipping_data(price_html):
+    """Gets shipping price"""
+    ship = [p.find("span", {"class": "item_shipping"}) for p in price_html]
+
+    def s_help(forest):
+        """decomposes irrelevant spans"""
+        for tree in forest.find_all("i"):
+            tree.decompose()
+        for tree in forest.find_all("button"):
+            tree.decompose()
+        return forest.get_text().strip()
+
+    ship = [re.sub(r"^[^\d]*", "", s_help(sp)).replace(",", "") for sp in ship]
+    return [float(s_p) if s_p else None for s_p in ship]
+
+
+def media_data(cond_html):
+    """Pulls the media conditions"""
+    m_cond = map(lambda x: x.find_all("span")[2], cond_html)
+
+    def mc_help(forest):
+        """decomposes irrevant spans"""
+        for tree in forest.find_all("span"):
+            tree.decompose()
+        return forest.get_text().strip()
+
+    return [mc_help(m_c) for m_c in m_cond]
+
+
+def ships_from_data(seller_html):
+    """Pulls shipping countries"""
+    s_loc = [s.find_all("li")[2].find("span").decompose() for s in seller_html]
+    return [s_f.get_text().strip() if s_f else None for s_f in s_loc]
+
+
 def forsaleprocess(path):
-    with open(path, "r") as f:
-        soup = BeautifulSoup(f, "html.parser")
+    with open(path, "r", encoding="utf8") as file:
+        soup = BeautifulSoup(file, "html.parser")
 
         cond = soup.find_all("p", {"class": "item_condition"})
-        note = soup.find_all("p", {"class": "hide_mobile"})
-        note = [n for n in note if n.find("span") is None]
+        nte = soup.find_all("p", {"class": "hide_mobile"})
+        nte = [n for n in nte if n.find("span", {"class": "mplabel"}) is None]
         seller = soup.find_all("td", {"class": "seller_info"})
         price = soup.find_all("td", {"class": "item_price hide_mobile"})
 
-        # TOTAL USD AND EXACT/ESTIMATE
-        total = [
-            p.find("span", {"class": "converted_price"}).get_text().strip()
-            for p in price
-        ]
-        total = [t.split() for t in total]
-        est_exact = []
-        for t in total:
-            if t[-1] != "total":
-                est_exact.append(None)
-            elif t[0] == "about":
-                est_exact.append("Estimate")
-            else:
-                est_exact.append("Exact")
+        # total usd and exact/estimate
+        total, est_exact = total_data(price)
 
-        for i, e in enumerate(est_exact):
-            if e is None:
-                total[i] = None
-            elif e == "Estimate":
-                total[i] = total[i][1]
-            else:
-                total[i] = total[i][0]
-        total = [float(t.replace("$", "")) if t is not None else None for t in total]
+        # list price and currency
+        list_price, currency = lp_data(price)
 
-        # LIST PRICE AND CURRENCY
-        list_price = [
-            p.find("span", {"class": "price"}).get_text().strip() for p in price
-        ]
-        currency = [re.sub("\d.*$", "", lp) for lp in list_price]
-        for i, c in enumerate(currency):
-            if c == "$":
-                currency[i] = "USD"
-            elif c == "€":
-                currency[i] = "EUR"
-            elif c == "CA$":
-                currency[i] = "CAD"
-            elif c == "£":
-                currency[i] = "GBP"
-            elif c == "¥":
-                currency[i] = "JPY"
-            elif c == "A$":
-                currency[i] = "AUD"
-        list_price = [re.sub("^[^\d]*", "", lp) for lp in list_price]
-        list_price = [lp.replace(",", "") for lp in list_price]
-        list_price = [float(lp) for lp in list_price]
+        # shipping price
+        shipping_price = shipping_data(price)
 
-        # SHIPPING PRICE
-        shipping_price = [p.find("span", {"class": "item_shipping"}) for p in price]
-        for sp in shipping_price:
-            for t in sp.find_all("i"):
-                t.decompose()
-            for t in sp.find_all("button"):
-                t.decompose()
-        shipping_price = [sp.get_text().strip() for sp in shipping_price]
-        shipping_price = [re.sub("^[^\d]*", "", sp) for sp in shipping_price]
-        shipping_price = [sp.replace(",", "") for sp in shipping_price]
-        shipping_price = [float(sp) if sp != "" else None for sp in shipping_price]
-
-        # MEDIA CONDITION
-        media_cond = map(lambda x: x.find_all("span"), cond)
-
-        def med_cond_help(m):
-            for s in m[2].find_all("span"):
-                s.decompose()
-            return m[2].get_text().strip()
-
-        media_cond = list(map(med_cond_help, media_cond))
+        # media condition
+        media_cond = media_data(cond)
 
         # SLEEVE CONDITION
         sleeve_cond = map(
@@ -110,27 +145,24 @@ def forsaleprocess(path):
         ave_rate = [float(ar.replace("%", "")) if ar else None for ar in ave_rate]
 
         # COMMENTS FROM SELLER
-        note = [n.get_text().strip() for n in note]
+        nte = [n.get_text().strip() for n in nte]
 
         # SHIPS FROM
-        ships_from = [s.find_all("li")[2] for s in seller]
-        for sf in ships_from:
-            sf.find("span").decompose()
-        ships_from = [sf.get_text().strip() for sf in ships_from]
+        ships_from = ships_from_data(seller)
 
-        biglist = [
-            total,
-            est_exact,
-            media_cond,
-            sleeve_cond,
-            list_price,
-            shipping_price,
-            ships_from,
-            currency,
-            seller_name,
-            rate_count,
-            ave_rate,
-            note,
-        ]
-        biglist = zip(*biglist)
-        return biglist
+        return zip(
+            *[
+                total,
+                est_exact,
+                media_cond,
+                sleeve_cond,
+                list_price,
+                shipping_price,
+                ships_from,
+                currency,
+                seller_name,
+                rate_count,
+                ave_rate,
+                nte,
+            ]
+        )

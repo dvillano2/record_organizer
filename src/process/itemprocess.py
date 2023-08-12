@@ -12,7 +12,7 @@ def itemprocess(path):
     with open(path, "r") as f:
         soup = BeautifulSoup(f, "html.parser")
 
-        ### LAST SOLD, LOWEST, MEDIAN, HIGHEST ALL HERE
+        # LAST SOLD, LOWEST, MEDIAN, HIGHEST ALL HERE
         stats = soup.find("ul", {"class": "last"})
 
         for s in stats.find_all("span"):
@@ -31,11 +31,10 @@ def itemprocess(path):
             median = float(mid_stats[1].get_text().strip()[1:])
             highest = float(mid_stats[2].get_text().strip()[1:])
 
-        ### URL
+        # URL
         url = soup.find("link", {"hreflang": "en"})["href"].strip()
 
-        ### All other info in json
-        ###
+        # All other info in json
         site_json = json.loads(
             soup.find(
                 "script", {"type": "application/ld+json"}, {"id": "release_schema"}
@@ -44,10 +43,10 @@ def itemprocess(path):
         date_pub = site_json["datePublished"]
         rel_name = site_json["name"]
 
-        ### Picks the first record label listed in the schema
+        # Picks the first record label listed in the schema
         label = site_json["recordLabel"][0]["name"]
 
-        ### All artists involved, separated by semicolons
+        # All artists involved, separated by semicolons
         artists = ""
         for artist in site_json["releaseOf"]["byArtist"]:
             artists = artists + artist["name"] + "; "
