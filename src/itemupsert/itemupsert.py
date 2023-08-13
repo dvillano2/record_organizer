@@ -1,5 +1,5 @@
 """
-Funtion that takes the row of the item to be added and adds or updates it
+Function that takes the row of the item to be added and adds or updates it
 Returns the id of the release, whether or not its already in the database
 """
 from datetime import datetime
@@ -7,7 +7,7 @@ import sqlite3
 
 
 def itemupsert(row, path_to_db):
-    """Takes row and db, inserts or updates"""
+    """Takes row and db, inserts if not there, returns the id"""
     row = list(row)
     row += [datetime.now().date()] * 2
 

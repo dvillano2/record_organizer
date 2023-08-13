@@ -78,7 +78,7 @@ def shipping_data(price_html):
 
 
 def media_data(cond_html):
-    """Pulls the media conditions"""
+    """Gets the media conditions"""
     m_cond = map(lambda x: x.find_all("span")[2], cond_html)
 
     def mc_help(forest):
@@ -90,67 +90,88 @@ def media_data(cond_html):
     return [mc_help(m_c) for m_c in m_cond]
 
 
+def sleeve_data(c_html):
+    """Gets sleeve conditions"""
+    s_c = [c.find("span", {"class": "item_sleeve_condition"}) for c in c_html]
+    return [sc.get_text() if sc else "No sleeve listed" for sc in s_c]
+
+
+def name_rating_count(seller_html):
+    """Gets seller name and number of ratings"""
+    # get name and rating info
+    n_r = [s.find_all("a") for s in seller_html]
+    # get seller names
+    s_n = [nr[0].get_text().strip() for nr in n_r]
+    # get rate counts
+    r_c = [nr[1].get_text().strip() if len(nr) > 1 else None for nr in n_r]
+    r_c = [int("".join(filter(str.isdigit, rc))) if rc else None for rc in r_c]
+    return s_n, r_c
+
+
+def av_rating_data(seller_html):
+    """Gets seller average rating"""
+    a_r = [s.find_all("strong") for s in seller_html]
+    a_r = [ar[1].get_text().strip() if len(ar) > 1 else None for ar in a_r]
+    return [float(ar.replace("%", "")) if ar else None for ar in a_r]
+
+
 def ships_from_data(seller_html):
-    """Pulls shipping countries"""
+    """Gets shipping countries"""
     s_loc = [s.find_all("li")[2] for s in seller_html]
     for s_l in s_loc:
         s_l.find("span").decompose()
     return [s_l.get_text().strip() if s_l else None for s_l in s_loc]
 
 
-def forsaleprocess(path):
-    with open(path, "r", encoding="utf8") as file:
-        soup = BeautifulSoup(file, "html.parser")
+def note_data(nhtml):
+    """Gets seller notes"""
+    # Drop non-comment trees
+    t_n = filter(lambda x: x.find("span", {"class": "mplabel"}) is None, nhtml)
+    return [n.get_text().strip() for n in t_n]
 
-        cond = soup.find_all("p", {"class": "item_condition"})
-        nte = soup.find_all("p", {"class": "hide_mobile"})
-        nte = [n for n in nte if n.find("span", {"class": "mplabel"}) is None]
-        seller = soup.find_all("td", {"class": "seller_info"})
-        price = soup.find_all("td", {"class": "item_price hide_mobile"})
+
+def separate_html(b_soup):
+    """Breaks up BeautifulSoup object"""
+    soups = {}
+    soups["cond"] = b_soup.find_all("p", {"class": "item_condition"})
+    soups["note"] = b_soup.find_all("p", {"class": "hide_mobile"})
+    soups["seller"] = b_soup.find_all("td", {"class": "seller_info"})
+    soups["price"] = b_soup.find_all("td", {"class": "item_price hide_mobile"})
+    return soups
+
+
+def forsaleprocess(path):
+    """returns zip object, each entry a for sale row"""
+    with open(path, "r", encoding="utf8") as file:
+        # Create the subsoups
+        sub_soups = separate_html(BeautifulSoup(file, "html.parser"))
 
         # total usd and exact/estimate
-        total, est_exact = total_data(price)
+        total, est_exact = total_data(sub_soups["price"])
 
         # list price and currency
-        list_price, currency = lp_data(price)
+        list_price, currency = lp_data(sub_soups["price"])
 
         # shipping price
-        shipping_price = shipping_data(price)
+        shipping_price = shipping_data(sub_soups["price"])
 
         # media condition
-        media_cond = media_data(cond)
+        media_cond = media_data(sub_soups["cond"])
 
-        # SLEEVE CONDITION
-        sleeve_cond = map(
-            lambda x: x.find("span", {"class": "item_sleeve_condition"}), cond
-        )
-        sleeve_cond = map(
-            lambda x: x.get_text() if x else "No sleeve listed", sleeve_cond
-        )
-        sleeve_cond = list(sleeve_cond)
+        # sleeve condition
+        sleeve_cond = sleeve_data(sub_soups["cond"])
 
-        # SELLER USERNAME AND NUMBER OF RATINGS
-        name_rate = [s.find_all("a") for s in seller]
-        seller_name = [nr[0].get_text().strip() for nr in name_rate]
-        rate_count = [
-            nr[1].get_text().strip() if len(nr) > 1 else None for nr in name_rate
-        ]
-        rate_count = [
-            int("".join(filter(str.isdigit, rc))) if rc else None for rc in rate_count
-        ]
+        # seller username and number of ratings
+        seller_name, rate_count = name_rating_count(sub_soups["seller"])
 
-        # AVERAGE RATING
-        ave_rate = [s.find_all("strong") for s in seller]
-        ave_rate = [
-            ar[1].get_text().strip() if len(ar) > 1 else None for ar in ave_rate
-        ]
-        ave_rate = [float(ar.replace("%", "")) if ar else None for ar in ave_rate]
+        # average rating
+        av_rate = av_rating_data(sub_soups["seller"])
 
-        # COMMENTS FROM SELLER
-        nte = [n.get_text().strip() for n in nte]
+        # comments from seller
+        note = note_data(sub_soups["note"])
 
-        # SHIPS FROM
-        ships_from = ships_from_data(seller)
+        # ships from
+        ships_from = ships_from_data(sub_soups["seller"])
 
         return zip(
             *[
@@ -164,7 +185,7 @@ def forsaleprocess(path):
                 currency,
                 seller_name,
                 rate_count,
-                ave_rate,
-                nte,
+                av_rate,
+                note,
             ]
         )

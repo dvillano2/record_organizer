@@ -1,58 +1,65 @@
-from bs4 import BeautifulSoup
-from datetime import datetime
-import re
+"""
+Function that takes path to the html and returns an item row
+"""
 import json
+from datetime import datetime
+from bs4 import BeautifulSoup
 
-"""
-Function that takes path to the html and returns an item row 
-"""
+
+def get_soup_info(bsoup):
+    """Returns relevant subsoups"""
+    sinfo = {}
+    sinfo["url"] = bsoup.find("link", {"hreflang": "en"})["href"]
+    sinfo["stats"] = bsoup.find("ul", {"class": "last"})
+    sinfo["json"] = json.loads(
+        bsoup.find(
+            "script", {"type": "application/ld+json"}, {"id": "release_schema"}
+        ).text
+    )
+    return sinfo
+
+
+def get_sales_stats(stats_soup):
+    """Gets the sales entries from the prepared stats soup"""
+    l_sold = stats_soup.find("li", {"class": "last_sold"}).get_text().strip()
+    if l_sold == "Never":
+        l_sold = None
+        low = None
+        mid = None
+        high = None
+    else:
+        l_sold = datetime.strptime(l_sold, "%d %b %y").date()
+        mid_stats = stats_soup.find_all("li")[1:]
+        low = float(mid_stats[0].get_text().strip()[1:])
+        mid = float(mid_stats[1].get_text().strip()[1:])
+        high = float(mid_stats[2].get_text().strip()[1:])
+
+    return l_sold, low, mid, high
 
 
 def itemprocess(path):
-    with open(path, "r") as f:
-        soup = BeautifulSoup(f, "html.parser")
+    """Returns release row for the corresponding html file"""
+    with open(path, "r", encoding="utf-8") as file:
+        subinfos = get_soup_info(BeautifulSoup(file, "html.parser"))
 
-        # LAST SOLD, LOWEST, MEDIAN, HIGHEST ALL HERE
-        stats = soup.find("ul", {"class": "last"})
+        url = subinfos["url"].strip()
 
-        for s in stats.find_all("span"):
-            s.decompose()
+        for span in subinfos["stats"].find_all("span"):
+            span.decompose()
 
-        last_sold = stats.find("li", {"class": "last_sold"}).get_text().strip()
-        if last_sold == "Never":
-            last_sold = None
-            lowest = None
-            median = None
-            highest = None
-        else:
-            last_sold = datetime.strptime(last_sold, "%d %b %y").date()
-            mid_stats = stats.find_all("li")[1:]
-            lowest = float(mid_stats[0].get_text().strip()[1:])
-            median = float(mid_stats[1].get_text().strip()[1:])
-            highest = float(mid_stats[2].get_text().strip()[1:])
+        last_sold, lowest, median, highest = get_sales_stats(subinfos["stats"])
 
-        # URL
-        url = soup.find("link", {"hreflang": "en"})["href"].strip()
-
-        # All other info in json
-        site_json = json.loads(
-            soup.find(
-                "script", {"type": "application/ld+json"}, {"id": "release_schema"}
-            ).text
-        )
-        date_pub = site_json["datePublished"]
-        rel_name = site_json["name"]
-
-        # Picks the first record label listed in the schema
-        label = site_json["recordLabel"][0]["name"]
+        date_pub = subinfos["json"]["datePublished"]
+        rel_name = subinfos["json"]["name"]
+        label = subinfos["json"]["recordLabel"][0]["name"]
 
         # All artists involved, separated by semicolons
         artists = ""
-        for artist in site_json["releaseOf"]["byArtist"]:
+        for artist in subinfos["json"]["releaseOf"]["byArtist"]:
             artists = artists + artist["name"] + "; "
         artists = artists[:-2]
 
-        row = (
+        return (
             rel_name,
             artists,
             label,
@@ -63,4 +70,3 @@ def itemprocess(path):
             last_sold,
             url,
         )
-        return row
