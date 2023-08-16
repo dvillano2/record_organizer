@@ -23,4 +23,4 @@ elif [[ "$1" = 'update' ]]; then
 fi
 
 ### Excute the additons/upserts
-python3 src/upsert.py
+python3 -c'from src.upsert import upsert, WI_PATH, DB_PATH; upsert(WI_PATH, DB_PATH)'

@@ -21,7 +21,7 @@ def get_soup_info(bsoup):
 
 def get_sales_stats(stats_soup):
     """Gets the sales entries from the prepared stats soup"""
-    l_sold = stats_soup.find("li", {"class": "last_sold"}).get_text().strip()
+    l_sold = stats_soup.find("li").get_text().strip()
     if l_sold == "Never":
         l_sold = None
         low = None
