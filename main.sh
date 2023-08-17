@@ -20,6 +20,9 @@ elif [[ "$1" = 'update' ]]; then
 		exit
 	fi
 	curl -s "$url" > $WINFO_PATH
+else
+	echo ERROR: incorrect usage, double check input 1>&2
+	exit 1
 fi
 
 ### Excute the additons/upserts
